@@ -1,0 +1,20 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Vehicle sensor readings, this includes all readings from sensors in this snapshot
+model Snapshot {
+  id Int @id @default(autoincrement())
+  motorTemperature Float
+  batteryTemperature Float
+  batteryPercentage Float
+  tyrePressure Float
+  speed Float
+  chargeRate Float
+  time DateTime @default(now())
+}
