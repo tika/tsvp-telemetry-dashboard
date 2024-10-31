@@ -63,7 +63,7 @@ export default async function Dashboard() {
           <p className="text-sm">Graphs Show: </p>
           <Select>
             <SelectTrigger className="w-40">
-              <SelectValue placeholder={"Select Time"} />
+              <SelectValue placeholder={"Select Graph Timespan"} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="1m">Last 1 min</SelectItem>
@@ -92,7 +92,7 @@ export default async function Dashboard() {
       </div>
 
       <div className="flex gap-4">
-        <TempsChart chartData={temperatureChartData} />
+        <TempsChart chartData={temperatureChartData} timespan={0.5} />
         <CellsChart />
         <div className="flex gap-4">
           <TyrePressureChart />

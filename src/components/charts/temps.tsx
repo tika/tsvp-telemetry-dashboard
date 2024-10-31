@@ -1,14 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  ReferenceArea,
-  XAxis,
-  YAxis,
-} from "recharts";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -24,6 +17,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { capitalise } from "../../lib/utils";
 import {
   Select,
   SelectContent,
@@ -39,11 +33,12 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-// Data is { date: string, temperature: number, type: "battery" | "motor" }[]
 export function TempsChart({
   chartData,
+  timespan,
 }: {
   chartData: { date: string; temperature: number; type: "battery" | "motor" }[];
+  timespan: number;
 }) {
   const [selectedGraph, setSelectedGraph] = useState<"battery" | "motor">(
     "battery"
@@ -51,49 +46,35 @@ export function TempsChart({
   const [selectedUnit, setSelectedUnit] = useState<"celsius" | "fahrenheit">(
     "celsius"
   );
-  const [left, setLeft] = useState("dataMin");
-  const [right, setRight] = useState("dataMax");
-  const [refAreaLeft, setRefAreaLeft] = useState("");
-  const [refAreaRight, setRefAreaRight] = useState("");
 
-  const convertTemperature = (data: typeof chartData) => {
-    // First filter by type, then convert if necessary
-    const filteredData = data.filter((point) => point.type === selectedGraph);
+  function filterInTimespan(data: typeof chartData) {
+    if (data.length === 0) return data;
 
-    if (selectedUnit === "celsius") return filteredData;
+    const latestTime = Math.max(
+      ...data.map((point) => new Date(point.date).getTime())
+    );
+    const earliestTime = latestTime - timespan * 60 * 1000;
 
-    return filteredData.map((point) => ({
-      ...point,
-      temperature: Math.round((point.temperature * 9) / 5 + 32),
-    }));
+    return data.filter(
+      (point) => new Date(point.date).getTime() >= earliestTime
+    );
+  }
+
+  const convertTemperature = (temperature: number) => {
+    if (selectedUnit === "celsius") return temperature;
+    return Math.round((temperature * 9) / 5 + 32);
   };
 
-  const processedData = convertTemperature(chartData);
+  // Filter by timespan first
+  const timeFilteredData = filterInTimespan(chartData);
 
-  const zoom = () => {
-    if (refAreaLeft === refAreaRight || refAreaRight === "") {
-      setRefAreaLeft("");
-      setRefAreaRight("");
-      return;
-    }
+  // Process temperature for display
+  const processedData = timeFilteredData.map((point) => ({
+    ...point,
+    temperature: convertTemperature(point.temperature),
+  }));
 
-    // xAxis domain
-    if (refAreaLeft > refAreaRight) {
-      setLeft(refAreaRight);
-      setRight(refAreaLeft);
-    } else {
-      setLeft(refAreaLeft);
-      setRight(refAreaRight);
-    }
-
-    setRefAreaLeft("");
-    setRefAreaRight("");
-  };
-
-  const zoomOut = () => {
-    setLeft("dataMin");
-    setRight("dataMax");
-  };
+  const chartMargin = { top: 0, right: 0, left: -20, bottom: 0 };
 
   return (
     <Dialog>
@@ -120,8 +101,8 @@ export function TempsChart({
           <DialogTrigger onClick={() => setSelectedGraph("battery")}>
             <ChartContainer className="min-h-[200px]" config={chartConfig}>
               <AreaChart
-                data={chartData.filter((point) => point.type === "battery")}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                data={processedData.filter((point) => point.type === "battery")}
+                margin={chartMargin}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -139,7 +120,7 @@ export function TempsChart({
                     });
                   }}
                 />
-                <YAxis />
+                <YAxis dx={-10} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Area
                   type="monotone"
@@ -155,8 +136,8 @@ export function TempsChart({
           <DialogTrigger onClick={() => setSelectedGraph("motor")}>
             <ChartContainer className="min-h-[200px]" config={chartConfig}>
               <AreaChart
-                data={chartData.filter((point) => point.type === "motor")}
-                margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                data={processedData.filter((point) => point.type === "motor")}
+                margin={chartMargin}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
@@ -174,7 +155,7 @@ export function TempsChart({
                     });
                   }}
                 />
-                <YAxis />
+                <YAxis dx={-10} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Area
                   type="monotone"
@@ -189,32 +170,23 @@ export function TempsChart({
         </CardContent>
       </Card>
 
-      <DialogContent className="w-full max-w-4xl h-[600px]">
+      <DialogContent className="max-w-[50vw]">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Temperature Details - {selectedGraph}</span>
-            <button
-              onClick={zoomOut}
-              className="px-3 py-1.5 text-sm border rounded-md hover:bg-secondary"
-            >
-              Reset Zoom
-            </button>
+            <span className="font-title font-black">
+              Temperature Details - {capitalise(selectedGraph)}
+            </span>
           </DialogTitle>
         </DialogHeader>
 
-        <ChartContainer className="h-[500px]" config={chartConfig}>
+        <ChartContainer className="w-full" config={chartConfig}>
           <AreaChart
-            data={processedData}
-            onMouseDown={(e) => e && setRefAreaLeft(e.activeLabel as string)}
-            onMouseMove={(e) =>
-              refAreaLeft && e && setRefAreaRight(e.activeLabel as string)
-            }
-            onMouseUp={zoom}
+            data={processedData.filter((point) => point.type === selectedGraph)}
+            margin={chartMargin}
           >
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="date"
-              domain={[left, right]}
               type="category"
               allowDataOverflow
               tickFormatter={(value) => {
@@ -227,7 +199,7 @@ export function TempsChart({
                 });
               }}
             />
-            <YAxis allowDataOverflow />
+            <YAxis allowDataOverflow dx={-10} />
             <ChartTooltip content={<ChartTooltipContent />} />
             <Area
               type="monotone"
@@ -236,13 +208,6 @@ export function TempsChart({
               fill="var(--color-temperature)"
               fillOpacity={0.4}
             />
-            {refAreaLeft && refAreaRight ? (
-              <ReferenceArea
-                x1={refAreaLeft}
-                x2={refAreaRight}
-                strokeOpacity={0.3}
-              />
-            ) : null}
           </AreaChart>
         </ChartContainer>
       </DialogContent>
