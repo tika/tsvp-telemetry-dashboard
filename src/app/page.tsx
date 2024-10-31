@@ -1,17 +1,15 @@
-"use server";
+"use client";
 
 import logo from "@/app/logo.svg";
-import { prisma } from "@/lib/db";
 import { Snapshot } from "@prisma/client";
-import { FileText } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 import { CellsChart } from "../components/charts/cells";
 import { SpeedChart } from "../components/charts/speed";
 import { TempsChart } from "../components/charts/temps";
 import { TyrePressureChart } from "../components/charts/tyre-pressure";
 import { ExportDialog } from "../components/export-dialog";
 import { RunSelect } from "../components/run-select";
-import { Button } from "../components/ui/button";
 import {
   Select,
   SelectContent,
@@ -26,33 +24,59 @@ type TemperatureChartData = {
   type: "battery" | "motor";
 }[];
 
-async function getData(): Promise<Snapshot[]> {
-  const snapshots = await prisma.snapshot.findMany({
-    orderBy: {
-      time: "desc",
-    },
-    take: 100, // Limit to last 100 readings
-  });
+type SnapshotWithTimeString = Snapshot & {
+  time: string;
+};
 
-  return snapshots;
-}
-
-export default async function Dashboard() {
-  const snapshots = await getData();
+function getTemperatureChartData(snapshots: SnapshotWithTimeString[]) {
   const temperatureChartData: TemperatureChartData = snapshots
     .map((snapshot) => [
       {
-        date: snapshot.time.toISOString(),
+        date: snapshot.time,
         temperature: snapshot.motorTemperature,
         type: "motor" as const,
       },
       {
-        date: snapshot.time.toISOString(),
+        date: snapshot.time,
         temperature: snapshot.batteryTemperature,
         type: "battery" as const,
       },
     ])
     .flat();
+
+  return temperatureChartData;
+}
+
+function convertTimespanToMinutes(timespan: string) {
+  if (timespan === "1m") return 1;
+  if (timespan === "5m") return 5;
+  if (timespan === "10m") return 10;
+  if (timespan === "30m") return 30;
+
+  return 1;
+}
+
+export default function Dashboard() {
+  // use effect
+  const [data, setData] = useState<Snapshot[]>([]);
+  const [temperatureChartData, setTemperatureChartData] =
+    useState<TemperatureChartData>([]);
+  const [timespan, setTimespan] = useState<string>("1m");
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const response = await fetch("/api/snapshot");
+      const { data } = await response.json();
+
+      setData(data);
+      setTemperatureChartData(getTemperatureChartData(data));
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="my-4 mx-16 flex flex-col gap-4">
@@ -61,7 +85,7 @@ export default async function Dashboard() {
         <RunSelect />
         <div className="flex items-center gap-4">
           <p className="text-sm">Graphs Show: </p>
-          <Select>
+          <Select onValueChange={(value) => setTimespan(value)}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder={"Select Graph Timespan"} />
             </SelectTrigger>
@@ -84,15 +108,15 @@ export default async function Dashboard() {
           <p>Last updated at 13:22:12</p>
         </div>
         <div className="flex gap-2">
-          <Button size="icon">
-            <FileText />
-          </Button>
-          <ExportDialog data={snapshots} />
+          <ExportDialog data={data} />
         </div>
       </div>
 
       <div className="flex gap-4">
-        <TempsChart chartData={temperatureChartData} timespan={0.5} />
+        <TempsChart
+          chartData={temperatureChartData}
+          timespan={convertTimespanToMinutes(timespan)}
+        />
         <CellsChart />
         <div className="flex gap-4">
           <TyrePressureChart />
