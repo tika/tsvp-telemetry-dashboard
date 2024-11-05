@@ -17,16 +17,12 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-const chartData = [
-  { month: "January", speed: 60 },
-  { month: "February", speed: 70 },
-  { month: "March", speed: 80 },
-  { month: "April", speed: 90 },
-  { month: "May", speed: 100 },
-  { month: "June", speed: 110 },
-];
+export function SpeedChart({ data }: { data: { time: string; speed: number }[] }) {
+  const chartData = data.map(point => ({
+    time: new Date(point.time).toLocaleTimeString(),
+    speed: Math.round(point.speed),
+  }));
 
-export function SpeedChart() {
   return (
     <Card>
       <CardHeader className="my-4">
@@ -45,11 +41,11 @@ export function SpeedChart() {
           >
             <CartesianGrid vertical={false} />
             <XAxis
-              dataKey="month"
+              dataKey="time"
               tickLine={false}
               axisLine={false}
               tickMargin={8}
-              tickFormatter={(value) => value.slice(0, 3)}
+              tickFormatter={(value) => value.slice(0, 5)}
             />
             <ChartTooltip
               cursor={false}

@@ -4,10 +4,7 @@ import logo from "@/app/logo.svg";
 import { Snapshot } from "@prisma/client";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { CellsChart } from "../components/charts/cells";
-import { SpeedChart } from "../components/charts/speed";
 import { TempsChart } from "../components/charts/temps";
-import { TyrePressureChart } from "../components/charts/tyre-pressure";
 import { ExportDialog } from "../components/export-dialog";
 import { RunSelect } from "../components/run-select";
 import {
@@ -62,13 +59,16 @@ export default function Dashboard() {
   const [temperatureChartData, setTemperatureChartData] =
     useState<TemperatureChartData>([]);
   const [timespan, setTimespan] = useState<string>("1m");
+  const [selectedRun, setSelectedRun] = useState<number>(1);
 
   useEffect(() => {
     const fetchData = async () => {
-      const response = await fetch("/api/snapshot");
+      const response = await fetch(`/api/snapshot?runId=${selectedRun}`);
       const { data } = await response.json();
 
       setData(data);
+
+      console.log(data);
       setTemperatureChartData(getTemperatureChartData(data));
     };
 
@@ -76,13 +76,13 @@ export default function Dashboard() {
     const interval = setInterval(fetchData, 5000); // Poll every 5 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedRun]);
 
   return (
     <div className="my-4 mx-16 flex flex-col gap-4">
       <div className="flex justify-between">
         <Image src={logo} alt="logo" width={150} height={150} />
-        <RunSelect />
+        <RunSelect selectedRun={selectedRun} setSelectedRun={setSelectedRun} />
         <div className="flex items-center gap-4">
           <p className="text-sm">Graphs Show: </p>
           <Select onValueChange={(value) => setTimespan(value)}>
@@ -117,10 +117,8 @@ export default function Dashboard() {
           chartData={temperatureChartData}
           timespan={convertTimespanToMinutes(timespan)}
         />
-        <CellsChart />
         <div className="flex gap-4">
-          <TyrePressureChart />
-          <SpeedChart />
+          {/* <TyrePressureChart data={data} timespan={convertTimespanToMinutes(timespan)} /> */}
         </div>
       </div>
     </div>

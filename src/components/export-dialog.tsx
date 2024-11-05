@@ -10,25 +10,43 @@ import {
 } from "@/components/ui/dialog";
 import { Snapshot } from "@prisma/client";
 import { Copy, Share } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RunSelect } from "./run-select";
 
 export function ExportDialog({ data }: { data: Snapshot[] }) {
   const [copied, setCopied] = useState(false);
-  const [selectedRun, setSelectedRun] = useState<number>(10);
+  const [selectedRun, setSelectedRun] = useState<number>(1);
+  const [runData, setRunData] = useState<Snapshot[]>(data);
+
+  useEffect(() => {
+    const fetchRunData = async () => {
+      const response = await fetch(`/api/snapshot?runId=${selectedRun}`);
+      const { data } = await response.json();
+      setRunData(data);
+    };
+
+    fetchRunData();
+  }, [selectedRun]);
 
   // Save this data to a CSV file
   function saveToCSV() {
-    const headers = Object.keys(data[0]).join(",");
-    const rows = data.map((row) => Object.values(row).join(",")).join("\n");
+    if (runData.length === 0) return;
+
+    const headers = Object.keys(runData[0]).join(",");
+    const rows = runData.map((row) => Object.values(row).join(",")).join("\n");
     const csv = `${headers}\n${rows}`;
 
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `SVP Run ${selectedRun}.csv`;
+    a.download = `SVP_Run_${selectedRun}_${runData[0]?.time}.csv`;
     a.click();
+
+    setCopied(true);
+    setTimeout(() => {
+      setCopied(false);
+    }, 1000);
   }
 
   return (
@@ -67,7 +85,7 @@ export function ExportDialog({ data }: { data: Snapshot[] }) {
               </tr>
             </thead>
             <tbody>
-              {data.map((row) => (
+              {runData.map((row) => (
                 <tr key={row.id} className="border-b">
                   <td className="p-2">{new Date(row.time).toLocaleString()}</td>
                   <td className="p-2">{row.motorTemperature.toFixed(1)}</td>
