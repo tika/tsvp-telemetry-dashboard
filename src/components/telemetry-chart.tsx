@@ -2,8 +2,8 @@
 
 import { Snapshot } from "@prisma/client";
 import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
-import { ChartConfig, ChartContainer, ChartTooltip } from "../ui/chart";
-import { Dialog, DialogContent, DialogTrigger } from "../ui/dialog";
+import { ChartConfig, ChartContainer, ChartTooltip } from "./ui/chart";
+import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
 
 import { DialogHeader, DialogTitle } from "@/components/ui/dialog";
 

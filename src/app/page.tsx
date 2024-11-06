@@ -3,10 +3,13 @@
 import logo from "@/app/logo.svg";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { TelemetryChart } from "../components/charts/telemetry-chart";
-import { TempsChart } from "../components/charts/temps";
+import { CellsCard } from "../components/cards/cells-card";
+import { SpeedCard } from "../components/cards/speed-card";
+import { TemperatureCard } from "../components/cards/temperature-card";
+import { TyrePressureCard } from "../components/cards/tyre-pressure-card";
 import { ExportDialog } from "../components/export-dialog";
 import { RunSelect } from "../components/run-select";
+import { SnapshotWithTimeString } from "../components/telemetry-chart";
 import {
   Select,
   SelectContent,
@@ -77,12 +80,9 @@ function convertTimespanToMinutes(timespan: string) {
 export default function Dashboard() {
   // use effect
   const [data, setData] = useState<SnapshotWithTimeString[]>([]);
-  const [temperatureChartData, setTemperatureChartData] =
-    useState<TemperatureChartData>([]);
   const [timespan, setTimespan] = useState<string>("1m");
   const [selectedRun, setSelectedRun] = useState<number>(1);
   const [runDate, setRunDate] = useState<Date | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,11 +91,9 @@ export default function Dashboard() {
 
       if (data.length > 0) {
         setRunDate(new Date(data[0].time));
-        setLastUpdated(new Date());
       }
 
       setData(data);
-      setTemperatureChartData(getTemperatureChartData(data));
     };
 
     fetchData();
@@ -103,19 +101,6 @@ export default function Dashboard() {
 
     return () => clearInterval(interval);
   }, [selectedRun]);
-
-  // Add this function to handle timespan changes
-  const handleTimespanChange = (value: string) => {
-    setTimespan(value);
-    // Force a re-fetch of data when timespan changes
-    const fetchData = async () => {
-      const response = await fetch(`/api/snapshot?runId=${selectedRun}`);
-      const { data } = await response.json();
-      setData(data);
-      setTemperatureChartData(getTemperatureChartData(data));
-    };
-    fetchData();
-  };
 
   function formatDate(date: Date | null) {
     if (!date) return "Loading...";
@@ -181,22 +166,17 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="flex gap-4">
-        <TempsChart
-          chartData={temperatureChartData}
+      <div className="flex gap-4 flex-wrap justify-evenly">
+        <TemperatureCard
+          data={data}
           timespan={convertTimespanToMinutes(timespan)}
         />
-        <TelemetryChart
-          chartData={data}
+        <CellsCard data={data} timespan={convertTimespanToMinutes(timespan)} />
+        <TyrePressureCard
+          data={data}
           timespan={convertTimespanToMinutes(timespan)}
-          tooltipFunction={(val) => `${val}°C`}
-          dataKey="batteryTemperature"
-          color="hsl(var(--chart-2))"
-          processData={(value) => Math.round(value)}
-          chartTitle="Temperature"
-          dialogTitle="Temperature Details"
-          label="Temperature"
         />
+        <SpeedCard data={data} timespan={convertTimespanToMinutes(timespan)} />
       </div>
     </div>
   );
