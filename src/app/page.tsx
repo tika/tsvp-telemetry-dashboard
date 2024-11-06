@@ -1,9 +1,9 @@
 "use client";
 
 import logo from "@/app/logo.svg";
-import { Snapshot } from "@prisma/client";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { TelemetryChart } from "../components/charts/telemetry-chart";
 import { TempsChart } from "../components/charts/temps";
 import { ExportDialog } from "../components/export-dialog";
 import { RunSelect } from "../components/run-select";
@@ -21,9 +21,11 @@ type TemperatureChartData = {
   type: "battery" | "motor";
 }[];
 
-type SnapshotWithTimeString = Snapshot & {
-  time: string;
-};
+type CellsChartData = {
+  date: string;
+  value: number;
+  type: "percentage" | "chargingRate";
+}[];
 
 function getTemperatureChartData(snapshots: SnapshotWithTimeString[]) {
   const temperatureChartData: TemperatureChartData = snapshots
@@ -44,6 +46,25 @@ function getTemperatureChartData(snapshots: SnapshotWithTimeString[]) {
   return temperatureChartData;
 }
 
+function getCellsChartData(snapshots: SnapshotWithTimeString[]) {
+  const cellsChartData: CellsChartData = snapshots
+    .map((snapshot) => [
+      {
+        date: snapshot.time,
+        value: snapshot.batteryPercentage,
+        type: "percentage" as const,
+      },
+      {
+        date: snapshot.time,
+        value: snapshot.chargeRate,
+        type: "chargingRate" as const,
+      },
+    ])
+    .flat();
+
+  return cellsChartData;
+}
+
 function convertTimespanToMinutes(timespan: string) {
   if (timespan === "1m") return 1;
   if (timespan === "5m") return 5;
@@ -55,20 +76,25 @@ function convertTimespanToMinutes(timespan: string) {
 
 export default function Dashboard() {
   // use effect
-  const [data, setData] = useState<Snapshot[]>([]);
+  const [data, setData] = useState<SnapshotWithTimeString[]>([]);
   const [temperatureChartData, setTemperatureChartData] =
     useState<TemperatureChartData>([]);
   const [timespan, setTimespan] = useState<string>("1m");
   const [selectedRun, setSelectedRun] = useState<number>(1);
+  const [runDate, setRunDate] = useState<Date | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       const response = await fetch(`/api/snapshot?runId=${selectedRun}`);
       const { data } = await response.json();
 
-      setData(data);
+      if (data.length > 0) {
+        setRunDate(new Date(data[0].time));
+        setLastUpdated(new Date());
+      }
 
-      console.log(data);
+      setData(data);
       setTemperatureChartData(getTemperatureChartData(data));
     };
 
@@ -78,14 +104,55 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, [selectedRun]);
 
+  // Add this function to handle timespan changes
+  const handleTimespanChange = (value: string) => {
+    setTimespan(value);
+    // Force a re-fetch of data when timespan changes
+    const fetchData = async () => {
+      const response = await fetch(`/api/snapshot?runId=${selectedRun}`);
+      const { data } = await response.json();
+      setData(data);
+      setTemperatureChartData(getTemperatureChartData(data));
+    };
+    fetchData();
+  };
+
+  function formatDate(date: Date | null) {
+    if (!date) return "Loading...";
+    // Format: 25 October 2024
+    return date.toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
+  function formatTime(date: Date | null) {
+    if (!date) return "Loading...";
+    return date.toLocaleString("en-US", {
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+      hour12: true,
+    });
+  }
+
   return (
     <div className="my-4 mx-16 flex flex-col gap-4">
-      <div className="flex justify-between">
+      <div className="flex justify-between items-start">
         <Image src={logo} alt="logo" width={150} height={150} />
-        <RunSelect selectedRun={selectedRun} setSelectedRun={setSelectedRun} />
+        <div className="flex flex-col gap-4 items-end">
+          <RunSelect
+            selectedRun={selectedRun}
+            setSelectedRun={setSelectedRun}
+          />
+        </div>
         <div className="flex items-center gap-4">
           <p className="text-sm">Graphs Show: </p>
-          <Select onValueChange={(value) => setTimespan(value)}>
+          <Select
+            onValueChange={(value) => setTimespan(value)}
+            value={timespan}
+          >
             <SelectTrigger className="w-40">
               <SelectValue placeholder={"Select Graph Timespan"} />
             </SelectTrigger>
@@ -104,8 +171,10 @@ export default function Dashboard() {
           <p className="uppercase font-black text-[10px] font-title text-gray-400">
             Viewing Date
           </p>
-          <p className="text-lg font-bold">25 September 2024</p>
-          <p>Last updated at 13:22:12</p>
+          <p className="text-lg font-bold">
+            {runDate ? formatDate(runDate) : "No data"}
+          </p>
+          <p>Last updated at {runDate ? formatTime(runDate) : "Never"}</p>
         </div>
         <div className="flex gap-2">
           <ExportDialog data={data} />
@@ -117,9 +186,17 @@ export default function Dashboard() {
           chartData={temperatureChartData}
           timespan={convertTimespanToMinutes(timespan)}
         />
-        <div className="flex gap-4">
-          {/* <TyrePressureChart data={data} timespan={convertTimespanToMinutes(timespan)} /> */}
-        </div>
+        <TelemetryChart
+          chartData={data}
+          timespan={convertTimespanToMinutes(timespan)}
+          tooltipFunction={(val) => `${val}°C`}
+          dataKey="batteryTemperature"
+          color="hsl(var(--chart-2))"
+          processData={(value) => Math.round(value)}
+          chartTitle="Temperature"
+          dialogTitle="Temperature Details"
+          label="Temperature"
+        />
       </div>
     </div>
   );

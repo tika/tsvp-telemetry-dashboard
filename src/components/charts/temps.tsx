@@ -8,7 +8,6 @@ import {
   ChartConfig,
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
 } from "@/components/ui/chart";
 import {
   Dialog,
@@ -32,6 +31,39 @@ const chartConfig = {
     color: "hsl(var(--chart-1))",
   },
 } satisfies ChartConfig;
+
+// Add this type to help with tooltip formatting
+type TemperatureTooltipProps = {
+  active?: boolean;
+  payload?: Array<{
+    value: number;
+    dataKey: string;
+  }>;
+  selectedUnit: "celsius" | "fahrenheit";
+};
+
+// Create a custom tooltip component
+function TemperatureTooltipContent({
+  active,
+  payload,
+  selectedUnit,
+}: TemperatureTooltipProps) {
+  if (!active || !payload?.length) return null;
+
+  const unit = selectedUnit === "celsius" ? "°C" : "°F";
+
+  return (
+    <div className="rounded-lg border bg-background p-2 shadow-sm">
+      <div className="flex items-center gap-2">
+        <div className="flex h-2 w-2 rounded-full bg-[var(--color-temperature)]" />
+        <span className="font-medium">
+          {payload[0].value.toFixed(1)}
+          {unit}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function TempsChart({
   chartData,
@@ -121,13 +153,18 @@ export function TempsChart({
                   }}
                 />
                 <YAxis dx={-10} />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip
+                  content={
+                    <TemperatureTooltipContent selectedUnit={selectedUnit} />
+                  }
+                />
                 <Area
                   type="monotone"
                   dataKey="temperature"
                   fill="var(--color-temperature)"
                   fillOpacity={0.4}
                   stroke="var(--color-temperature)"
+                  isAnimationActive={false}
                 />
               </AreaChart>
             </ChartContainer>
@@ -156,13 +193,18 @@ export function TempsChart({
                   }}
                 />
                 <YAxis dx={-10} />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip
+                  content={
+                    <TemperatureTooltipContent selectedUnit={selectedUnit} />
+                  }
+                />
                 <Area
                   type="monotone"
                   dataKey="temperature"
                   fill="var(--color-temperature)"
                   fillOpacity={0.4}
                   stroke="var(--color-temperature)"
+                  isAnimationActive={false}
                 />
               </AreaChart>
             </ChartContainer>
@@ -200,13 +242,18 @@ export function TempsChart({
               }}
             />
             <YAxis allowDataOverflow dx={-10} />
-            <ChartTooltip content={<ChartTooltipContent />} />
+            <ChartTooltip
+              content={
+                <TemperatureTooltipContent selectedUnit={selectedUnit} />
+              }
+            />
             <Area
               type="monotone"
               dataKey="temperature"
               stroke="var(--color-temperature)"
               fill="var(--color-temperature)"
               fillOpacity={0.4}
+              isAnimationActive={false}
             />
           </AreaChart>
         </ChartContainer>
